@@ -1,0 +1,60 @@
+# Публикация приложения на GitHub Pages: https://hompain.github.io/PaperKey/
+# Сборка — dotnet publish без AOT; сайт живёт в подпапке /PaperKey/, поэтому base href подставляется здесь.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Тесты
+        run: dotnet test tests/PaperKey.Tests -c Release
+
+      - name: Публикация
+        run: dotnet publish src/PaperKey.Web -c Release -o publish
+
+      - name: Подготовка для Pages
+        run: |
+          cd publish/wwwroot
+          find . -name "*.br" -delete -o -name "*.gz" -delete   # Pages сжимает сам, предсжатые копии только удваивают артефакт
+          sed -i 's|<base href="/" />|<base href="/PaperKey/" />|' index.html
+          grep -q 'base href="/PaperKey/"' index.html
+          cp index.html 404.html
+          touch .nojekyll
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true   # включает Pages с источником GitHub Actions, если ещё не включено
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publish/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
