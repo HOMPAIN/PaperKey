@@ -1,0 +1,474 @@
+@page "/scan"
+@using PaperKey.Core.Vision
+@using PaperKey.Web.Components
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>PaperKey — сканирование карточки</PageTitle>
+
+@{
+    RenderFragment<string> PasswordView = password =>
+        @<text>
+            <p class="password"><span class="p12">@password[..12]</span><span class="p18">@password[12..18]</span><span class="p28">@password[18..28]</span></p>
+            <p class="hint"><span class="swatch p12"></span>12 символов (72 бита) · <span class="swatch p18"></span>до 18 (108 бит) · <span class="swatch p28"></span>до 28 (168 бит)</p>
+        </text>;
+}
+
+<h1>Сканирование карточки</h1>
+<p class="lead">Сфотографируйте готовую карточку с одной стороны, затем с другой — порядок любой, сторона определяется сама. Ключ вычисляется на этом устройстве и никуда не отправляется.</p>
+
+<div class="camera-box">
+    <video id="cam" autoplay playsinline muted class="@(_cameraOn ? "" : "hidden")"></video>
+    @if (_cameraOn)
+    {
+        <div id="guide" class="guide guide-side"></div>
+    }
+    else
+    {
+        <div class="camera-placeholder">Камера выключена</div>
+    }
+</div>
+
+@* Лента снимков: новый — слева, прежние сдвигаются вправо; пустые места не рисуются *@
+@if (_shots.Count > 0)
+{
+    <div class="shots">
+        @foreach (var shot in _shots)
+        {
+            <div class="shot @(shot.Status.ToString().ToLowerInvariant()) @(shot.Id == _selected ? "selected" : "")" @onclick="() => ToggleShot(shot.Id)" title="@shot.Info">
+                @if (shot.Thumb is not null)
+                {
+                    <img src="@shot.Thumb" alt="" />
+                }
+                <div class="badge">
+                    @if (shot.Status == ShotStatus.Analyzing)
+                    {
+                        <span class="spinner"></span>
+                    }
+                    else
+                    {
+                        <span>@shot.Label</span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="actions">
+    @if (!_cameraOn)
+    {
+        <button class="icon-btn" title="Включить камеру" aria-label="Включить камеру" @onclick="() => StartCamera(null)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+    }
+    else
+    {
+        <button @onclick="Capture" disabled="@_busy">Сфотографировать</button>
+        <button class="icon-btn secondary" title="Выключить камеру" aria-label="Выключить камеру" @onclick="StopCamera">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2h6l2 2h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    }
+    @if (_cameraOn && _cameras.Count > 1)
+    {
+        <select class="camera-select" value="@_currentCamera" @onchange="SwitchCamera">
+            @foreach (var cam in _cameras)
+            {
+                <option value="@cam.Id">@cam.Label</option>
+            }
+        </select>
+    }
+    <label class="file-button secondary">
+        Загрузить фото
+        <input id="photo" type="file" accept="image/*" @onchange="LoadFile" />
+    </label>
+    @if (_shots.Count > 0 || _key is not null)
+    {
+        <button class="icon-btn secondary" title="Сбросить" aria-label="Сбросить" @onclick="Reset">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12a7 7 0 1 1-2.05-4.95" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 3v4.5h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+    }
+</div>
+
+@if (_cameraError is not null)
+{
+    <p class="warning">Камера недоступна: @_cameraError</p>
+}
+
+@if (_message is not null)
+{
+    <p class="hint">@_message</p>
+}
+
+@* Разделы паролей и ключа. Пока ключа нет — показаны, но заблокированы: нажатие объясняет, чего не хватает *@
+@if (_key is null)
+{
+    @foreach (var (id, title, help) in Sections)
+    {
+        <details class="result key-result locked">
+            <summary @onclick="() => LockedClick(id)" @onclick:preventDefault="true">
+                <h2>@title</h2>
+                @if (_lockedHint == id)
+                {
+                    <span class="help-pop open">Сначала сфотографируйте стороны A и B и дождитесь их удачного распознавания — зелёной или жёлтой отметки на снимках.</span>
+                }
+                <HelpTip Text="@help" />
+            </summary>
+        </details>
+    }
+}
+else
+{
+    <details class="result key-result">
+        <summary><h2>@Sections[0].Title</h2><HelpTip Text="@Sections[0].Help" /></summary>
+        @PasswordView(_password)
+    </details>
+
+    <details class="result key-result">
+        <summary><h2>@Sections[1].Title</h2><HelpTip Text="@Sections[1].Help" /></summary>
+        <input type="text" class="service-input" placeholder="Сервис или сервис/логин" value="@_service" @oninput="SetService" />
+        @if (_service.Trim().Length > 0)
+        {
+            @PasswordView(KeyDerivation.AppPassword(_key, _service, 28))
+        }
+    </details>
+
+    <details class="result key-result">
+        <summary><h2>@Sections[2].Title</h2><HelpTip Text="@Sections[2].Help" /></summary>
+        <p class="keyhex">@KeyHex</p>
+    </details>
+}
+
+@* Окно поверх страницы: крупный снимок с разметкой и сведения, как на странице проверки. Закрывается нажатием в любом месте (прокрутка внутри окна работает) или на снимок в ленте. *@
+@if (Selected is { } selected)
+{
+    <div class="modal-backdrop" @onclick="() => ToggleShot(selected.Id)">
+        <div class="modal">
+            <canvas id="big-shot"></canvas>
+            @if (selected.Results.Count == 0)
+            {
+                <p class="warning">@selected.Info</p>
+            }
+            else
+            {
+                <p class="hint">Снимок @selected.Width × @selected.Height, найдено сторон: @selected.Results.Count, распознано за @selected.Elapsed.TotalSeconds.ToString("0.0") с.</p>
+                <div class="results">
+                    @foreach (var r in selected.Results)
+                    {
+                        var s = SideProtection.Evaluate(r.Filled);
+                        <div class="result">
+                            <h2>Сторона @(r.Side == '?' ? "не определена" : r.Side.ToString())</h2>
+                            <table class="cells">
+                                <tr><td><span class="swatch good"></span>Закрашены уверенно</td><td>@r.Good</td></tr>
+                                <tr><td><span class="swatch satisfactory"></span>Закрашены слабо — лучше подкрасить</td><td>@r.Satisfactory</td></tr>
+                                <tr><td><span class="swatch bad"></span>Сомнительные — подкрасьте или сотрите</td><td>@r.Bad</td></tr>
+                                <tr><td>Всего закрашено</td><td>@r.Filled</td></tr>
+                            </table>
+                            @if (s is not null)
+                            {
+                                <p class="level">Точек: <b>@s.Marks</b> · @s.Bits.ToString("0") бит · уровень стороны: <b>@Texts.LevelName(s.Level)</b></p>
+                            }
+                        </div>
+                    }
+                </div>
+                <p class="hint">@selected.Info</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const int CaptureWidth = 1600;
+    private const int ThumbWidth = 320;
+    private const int MaxShots = 3;
+
+    private enum ShotStatus { Analyzing, Ok, Doubtful, Error }
+
+    /// <summary>Снимок в ленте: холст с разметкой хранится в camera.js под ключом Id.</summary>
+    private sealed class Shot
+    {
+        public string Id { get; init; } = "";
+        public ShotStatus Status { get; set; } = ShotStatus.Analyzing;
+        public string Label { get; set; } = "";
+        public string Info { get; set; } = "Распознаю…";
+        public string? Thumb { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public TimeSpan Elapsed { get; set; }
+        public List<SideCheckResult> Results { get; set; } = new();
+        public List<char> Sides { get; } = new();   // стороны, прочитанные с этого снимка (зелёные и жёлтые)
+    }
+
+    private static readonly (string Id, string Title, string Help)[] Sections =
+    {
+        ("single", "Единичный пароль", "Один пароль прямо из ключа карточки. Первые 12 символов — короткий, с добавкой до 18 или до 28 — длиннее; все три начинаются одинаково. Это часть самого ключа карточки: для разных сервисов лучше мастер-пароль ниже."),
+        ("master", "Мастер-пароль", "Карточка как мастер-пароль: введите имя сервиса (при нескольких аккаунтах — с логином, например <code>gmail.com/ivan</code>) и получите пароль только для него. Другой сервис — другой пароль; по паролю одного сервиса нельзя узнать ни ключ карточки, ни пароли других. Имя нужно вводить каждый раз одинаково: пробелы по краям и регистр букв не важны (поле само приводит буквы к строчным), а <code>gmail</code> и <code>gmail.com</code> — разные имена. Чтобы сменить пароль на сайте, добавьте к имени номер: <code>gmail.com/2</code>."),
+        ("key", "Ключ карты", "256-битный мастер-ключ карточки, вычисленный из обеих сторон (Argon2id). Из него выводится всё остальное. Это главный секрет: не показывайте экран и не пересылайте."),
+    };
+
+    private string? _lockedHint;
+
+    private void LockedClick(string id) => _lockedHint = _lockedHint == id ? null : id;
+
+    /// <summary>Имя сервиса приводится к виду, в котором оно войдёт в ключ: строчные буквы, нормализация NFC (пробелы по краям срезаются при вычислении).</summary>
+    private void SetService(ChangeEventArgs e) => _service = (e.Value?.ToString() ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormC);
+
+    private bool _cameraOn;
+    private bool _busy;
+    private string? _cameraError;
+    private string? _message;
+    private List<CameraInfo> _cameras = new();
+    private string _currentCamera = "";
+    private readonly List<Shot> _shots = new();
+    private int _shotCounter;
+    private string? _selected;
+    private bool _showSelected;
+    private readonly Dictionary<char, SideGrid> _sides = new();
+    private byte[]? _key;
+    private string _password = "";
+    private string _service = "";
+
+    public sealed record CameraInfo(string Id, string Label);
+    public sealed record CameraStart(string Error, List<CameraInfo> Cameras, string Current);
+
+    private string KeyHex => _key is null ? "" : string.Join(" ", Enumerable.Range(0, 8).Select(i => Convert.ToHexStringLower(_key, i * 4, 4)));
+    private Shot? Selected => _shots.FirstOrDefault(s => s.Id == _selected);
+
+    private async Task StartCamera(string? deviceId)
+    {
+        _cameraError = null;
+        _cameraOn = true;
+        StateHasChanged();
+        await Task.Yield();
+        var start = await JS.InvokeAsync<CameraStart>("paperkeyCamera.start", "cam", deviceId);
+        if (start.Error.Length > 0)
+        {
+            _cameraError = start.Error;
+            _cameraOn = false;
+            return;
+        }
+        _cameras = start.Cameras;
+        _currentCamera = start.Current;
+    }
+
+    private Task SwitchCamera(ChangeEventArgs e) => StartCamera(e.Value?.ToString());
+
+    private async Task StopCamera()
+    {
+        await JS.InvokeVoidAsync("paperkeyCamera.stop", "cam");
+        _cameraOn = false;
+    }
+
+    private async Task Capture()
+    {
+        var shot = NewShot();
+        var bytes = await JS.InvokeAsync<byte[]?>("paperkeyCamera.capture", "cam", "guide", shot.Id, CaptureWidth);
+        await Analyze(shot, bytes);
+    }
+
+    private async Task LoadFile()
+    {
+        var shot = NewShot();
+        var bytes = await JS.InvokeAsync<byte[]?>("paperkeyCamera.loadFile", "photo", shot.Id, CaptureWidth);
+        await Analyze(shot, bytes);
+    }
+
+    /// <summary>Новый снимок встаёт слева; нераспознанный предыдущий заменяется, лишние справа выпадают.</summary>
+    private Shot NewShot()
+    {
+        var shot = new Shot { Id = $"shot-{++_shotCounter}" };
+        if (_shots.Count > 0 && _shots[0].Status == ShotStatus.Error && _shots[0].Sides.Count == 0) RemoveShot(_shots[0]);
+        _shots.Insert(0, shot);
+        while (_shots.Count > MaxShots) RemoveShot(_shots[^1]);
+        return shot;
+    }
+
+    private void RemoveShot(Shot shot)
+    {
+        _shots.Remove(shot);
+        if (_selected == shot.Id) _selected = null;
+        _ = JS.InvokeVoidAsync("paperkeyCamera.forget", shot.Id);
+    }
+
+    private void ToggleShot(string id)
+    {
+        _selected = _selected == id ? null : id;
+        _showSelected = _selected is not null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showSelected && Selected is { } shot)
+        {
+            _showSelected = false;
+            await JS.InvokeVoidAsync("paperkeyCamera.show", shot.Id, "big-shot");
+        }
+    }
+
+    private void Reset()
+    {
+        foreach (var shot in _shots.ToList()) RemoveShot(shot);
+        _sides.Clear();
+        _key = null;
+        _password = "";
+        _service = "";
+        _message = null;
+        _selected = null;
+    }
+
+    /// <summary>
+    /// Разбор снимка. Цвет снимка — по классам клеток режима проверки: зелёный — все клетки уверенные,
+    /// жёлтый — есть слабые (0,5–0,65), но стороны читаются; красный — есть сомнительные (0,15–0,5), сторона
+    /// не определена или таблица не найдена. Зелёный и жёлтый снимок вытесняет прежний снимок той же стороны
+    /// и даёт её прочтение; красный ничего не заменяет.
+    /// </summary>
+    private async Task Analyze(Shot shot, byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length < 4)
+        {
+            RemoveShot(shot);
+            return;
+        }
+        _busy = true;
+        _message = null;
+        shot.Thumb = await JS.InvokeAsync<string>("paperkeyCamera.thumbnail", shot.Id, ThumbWidth);
+        StateHasChanged();
+        await Task.Yield();
+
+        var width = bytes[0] | (bytes[1] << 8);
+        var height = bytes[2] | (bytes[3] << 8);
+        var image = new GrayImage(width, height, bytes.AsSpan(4).ToArray());
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var results = SideChecker.AnalyzeAll(image);
+        shot.Elapsed = watch.Elapsed;
+        // Профиль этапов — только в консоль браузера, для настройки скорости
+        await JS.InvokeVoidAsync("console.log", "paperkey: " + string.Join(", ", SideChecker.Profile.Select(kv => $"{kv.Key} {kv.Value:0}")) + $", всего {watch.ElapsedMilliseconds}");
+        shot.Width = width;
+        shot.Height = height;
+        shot.Results = results;
+
+        var notes = new List<string>();
+        var labels = new List<string>();
+        var status = ShotStatus.Ok;
+        var readings = new Dictionary<char, SideGrid>();
+        if (results.Count == 0)
+        {
+            status = ShotStatus.Error;
+            labels.Add("Error");
+            notes.Add(SideChecker.NotFoundError);
+        }
+        foreach (var r in results) await DrawOverlay(shot.Id, r);
+        if (results.Count > 1)
+        {
+            // Сканер читает по одной стороне за снимок: разворот с двумя сторонами — это для страницы проверки
+            status = ShotStatus.Error;
+            labels.Add("Error");
+            notes.Add($"на снимке сторон: {results.Count} — снимайте по одной стороне");
+            results = new List<SideCheckResult>();
+        }
+        foreach (var r in results)
+        {
+            if (r.Side == '?')
+            {
+                status = ShotStatus.Error;
+                labels.Add("?");
+                notes.Add("сторона не определена — переснимите так, чтобы были видны маркеры и подпись");
+                continue;
+            }
+            if (r.Bad > 0)
+            {
+                status = ShotStatus.Error;
+                labels.Add($"{r.Side} ✗");
+                notes.Add($"сторона {r.Side}: {r.Bad} сомнительных клеток (красные) — переснимите при лучшем свете или подкрасьте");
+                continue;
+            }
+            var grid = SideReader.ToGrid(r, out _);
+            if (grid.FilledCount < CardFormat.PrintedCellsPerSide || grid.FilledCount > CardFormat.PrintedCellsPerSide + CardFormat.MaxMarksPerSide)
+            {
+                status = ShotStatus.Error;
+                labels.Add($"{r.Side} ✗");
+                notes.Add($"сторона {r.Side}: закрашено {grid.FilledCount} клеток, так не бывает — переснимите");
+                continue;
+            }
+            readings[r.Side] = grid;
+            if (r.Satisfactory > 0)
+            {
+                if (status == ShotStatus.Ok) status = ShotStatus.Doubtful;
+                labels.Add($"{r.Side} !");
+                notes.Add($"сторона {r.Side} прочитана, закрашено {grid.FilledCount} клеток; {r.Satisfactory} слабых (жёлтые) — лучше подкрасить");
+            }
+            else
+            {
+                labels.Add($"{r.Side} ✓");
+                notes.Add($"сторона {r.Side} прочитана, закрашено {grid.FilledCount} клеток");
+            }
+        }
+        shot.Status = status;
+        shot.Label = string.Join("  ", labels);
+        shot.Info = string.Join("; ", notes) + ".";
+        shot.Thumb = await JS.InvokeAsync<string>("paperkeyCamera.thumbnail", shot.Id, ThumbWidth);
+
+        // Красный снимок ничего не заменяет; зелёный и жёлтый дают прочтение и вытесняют прежний снимок той же стороны
+        if (status != ShotStatus.Error)
+        {
+            foreach (var (side, grid) in readings)
+            {
+                _sides[side] = grid;
+                shot.Sides.Add(side);
+            }
+            foreach (var old in _shots.Where(s => s != shot && s.Sides.Intersect(shot.Sides).Any()).ToList()) RemoveShot(old);
+        }
+        if (_selected == shot.Id) _showSelected = true;
+
+        if (_sides.ContainsKey('A') && _sides.ContainsKey('B') && _key is null)
+        {
+            StateHasChanged();
+            await Task.Delay(50);
+            _key = await MasterKeyInBrowser(_sides['A'], _sides['B']);
+            _password = KeyDerivation.Password(_key, 28);
+        }
+        else if (_sides.Count == 1 && _key is null)
+        {
+            _message = $"Теперь сторона {(_sides.ContainsKey('A') ? 'B' : 'A')}.";
+        }
+        _busy = false;
+    }
+
+    /// <summary>Argon2id считает hash-wasm (см. crypto.js); параметры — из CardFormat, те же, что в KeyDerivation.</summary>
+    private async Task<byte[]> MasterKeyInBrowser(SideGrid a, SideGrid b)
+    {
+        var password = Convert.ToHexString(a.ToBytes().Concat(b.ToBytes()).ToArray());
+        var salt = Convert.ToHexString(System.Text.Encoding.ASCII.GetBytes(CardFormat.MasterKeySalt));
+        var hex = await JS.InvokeAsync<string>("paperkeyCrypto.argon2id", password, salt,
+            CardFormat.Argon2MemoryKiB, CardFormat.Argon2Iterations, CardFormat.Argon2Parallelism, CardFormat.MasterKeyLength);
+        return Convert.FromHexString(hex);
+    }
+
+    /// <summary>Разметка клеток в цветах режима проверки — как на странице проверки.</summary>
+    private async Task DrawOverlay(string shotId, SideCheckResult r)
+    {
+        var corners = r.Corners.SelectMany(p => new[] { p.X, p.Y }).ToArray();
+        var quads = r.CellQuads.Select((q, i) => new
+        {
+            p = q.SelectMany(p => new[] { Math.Round(p.X, 1), Math.Round(p.Y, 1) }).ToArray(),
+            c = r.Classes[i] switch
+            {
+                CellClass.Good => "rgba(40,170,60,0.45)",
+                CellClass.Satisfactory => "rgba(240,190,0,0.6)",
+                CellClass.Bad => "rgba(220,30,30,0.6)",
+                _ => "",
+            },
+        }).Where(q => q.c.Length > 0).ToArray();
+        await JS.InvokeVoidAsync("paperkeyCamera.drawOverlay", shotId, corners, quads);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_cameraOn) await JS.InvokeVoidAsync("paperkeyCamera.stop", "cam");
+            foreach (var shot in _shots) await JS.InvokeVoidAsync("paperkeyCamera.forget", shot.Id);
+        }
+        catch (JSDisconnectedException) { }
+    }
+}

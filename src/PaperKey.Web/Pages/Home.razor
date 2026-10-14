@@ -1,0 +1,177 @@
+@page "/"
+@using PaperKey.Web.Components
+@inject IJSRuntime JS
+
+<PageTitle>PaperKey — бумажный ключ</PageTitle>
+
+<h1>PaperKey — бумажный ключ</h1>
+<p class="lead">Карточка с 256-битным ключом, которую вы печатаете сами. Всё происходит в этой вкладке: страница не отправляет ничего в сеть.</p>
+
+<div class="form">
+    @if (!DifferentNames)
+    {
+        <div class="field">
+            <div class="label-row"><label for="name">Название карточки</label> <HelpTip Text="Любое слово или фраза, чтобы отличать карточки друг от друга, например «Почта» или «Банк». Печатается на карточке в обведённом месте. В ключ не входит и секретом не является. Можно оставить пустым." Image="@HelpImages.Name" /></div>
+            <input id="name" type="text" maxlength="@SheetRequest.MaxNameLength" @bind="_name" @bind:event="oninput" placeholder="Например: Почта" />
+            <span class="hint">До @SheetRequest.MaxNameLength символов.</span>
+        </div>
+    }
+    else
+    {
+        <div class="field">
+            <div class="label-row"><span>Названия карточек</span> <HelpTip Text="Любое слово или фраза, чтобы отличать карточки друг от друга, например «Почта» или «Банк». Печатается на карточке в обведённом месте. В ключ не входит и секретом не является. Можно оставить пустым." Image="@HelpImages.Name" /></div>
+            @for (var i = 0; i < Count; i++)
+            {
+                var index = i;
+                <input type="text" maxlength="@SheetRequest.MaxNameLength" value="@NameAt(index)" @oninput="e => SetName(index, e)" placeholder="Карточка @(index + 1)" />
+            }
+            <span class="hint">До @SheetRequest.MaxNameLength символов каждое.</span>
+        </div>
+    }
+
+    <div class="row">
+        <div class="field">
+            <div class="label-row"><label for="size">Размер</label> <HelpTip Text="Стандарт — как банковская карта, в отделение кошелька. Узкая — то же без пустых полей сверху и снизу: помещается под полосу скотча 48 мм, которым карточку можно заламинировать дома. Мини — в полтора раза меньше, клетка 1,7 мм. Содержимое и защита у всех размеров одинаковы." Image="@HelpImages.Size" /></div>
+            <select id="size" @bind="_size">
+                <option value="@CardSize.Standard">Стандарт — 85,6 × 54 мм</option>
+                <option value="@CardSize.Compact">Узкая — 85,6 × 45 мм</option>
+                <option value="@CardSize.Mini">Мини — 57 × 30 мм</option>
+            </select>
+        </div>
+        <div class="field">
+            <div class="label-row"><label for="count">Карточек на листе</label> <HelpTip Text="Сколько карточек напечатать на одном листе. Обычно одну. Несколько — если нужны ключи для разных целей сразу или копии одного ключа про запас. Сколько помещается, зависит от размера карточки." Image="@HelpImages.Count" /></div>
+            <select id="count" @bind="_count">
+                @for (var i = 1; i <= MaxCards; i++)
+                {
+                    <option value="@i">@i</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_count > 1)
+    {
+        <label>
+            Что печатать
+            <select @bind="_mode">
+                <option value="@CardsMode.DifferentKeys">Разные ключи с одним названием — к названию добавится номер</option>
+                <option value="@CardsMode.DifferentNames">Разные ключи с разными названиями</option>
+                <option value="@CardsMode.Copies">Копии одного ключа — точки придётся повторить на каждой</option>
+            </select>
+        </label>
+    }
+
+    <details class="more">
+        <summary>Дополнительно</summary>
+        <div class="row">
+            <label>
+                Формат листа
+                <select @bind="_paper">
+                    <option value="@PaperSize.A4">A4</option>
+                    <option value="@PaperSize.Letter">Letter</option>
+                </select>
+            </label>
+        </div>
+    </details>
+
+    <div class="actions">
+        <button @onclick="Generate">Создать карточку</button>
+        @if (_sheet is not null)
+        {
+            <span class="hint">Каждое нажатие создаёт новый, независимый ключ.</span>
+        }
+    </div>
+</div>
+
+@if (_sheet is not null)
+{
+    <div class="preview">
+        <div class="actions">
+            <button @onclick="Download">Скачать PDF</button>
+            <button class="secondary" @onclick="Print">Печать из браузера</button>
+            <button class="secondary" @onclick="OpenPdf">Открыть PDF в новой вкладке</button>
+        </div>
+        <p class="hint">
+            Три способа печатают один и тот же лист; мы подбираем самый удобный. Печатайте стандартными настройками принтера.
+            При печати из браузера проверьте в окне печати формат бумаги (@_paper) и поля «нет»: иначе лист уменьшится.
+        </p>
+        @if (_popupBlocked)
+        {
+            <p class="warning">Браузер не дал открыть новую вкладку. Разрешите всплывающие окна для этой страницы или воспользуйтесь другой кнопкой.</p>
+        }
+
+        <div class="sheet print-sheet">
+            @((MarkupString)_svg)
+        </div>
+
+        <p class="warning">
+            Если вы скачивали файл — после печати удалите его, в том числе из корзины.
+            Печатайте на домашнем принтере: в копицентре файл с карточкой останется на чужом компьютере.
+        </p>
+    </div>
+}
+
+<p><a href="/check">Проверить напечатанный лист →</a> · <a href="/scan">Отсканировать готовую карточку →</a></p>
+
+<footer>
+    PaperKey — свободный проект под лицензией Apache 2.0. Формат карточки открыт: любой сканер прочитает любую карточку одинаково.
+</footer>
+
+@code {
+    private string _name = "";
+    private CardSize _size = CardSize.Standard;
+    private int _count = 1;
+    private CardsMode _mode = CardsMode.DifferentKeys;
+    private PaperSize _paper = PaperSize.A4;
+
+    private Sheet? _sheet;
+    private string _svg = "";
+    private byte[]? _pdf;
+    private bool _popupBlocked;
+
+    private readonly List<string> _names = new();
+
+    private int MaxCards => SheetLayout.MaxCards(_size, _paper);
+
+    private int Count => Math.Min(_count, MaxCards);
+
+    private bool DifferentNames => Count > 1 && _mode == CardsMode.DifferentNames;
+
+    private string NameAt(int index) => index < _names.Count ? _names[index] : "";
+
+    private void SetName(int index, ChangeEventArgs e)
+    {
+        while (_names.Count <= index) _names.Add("");
+        _names[index] = e.Value?.ToString() ?? "";
+    }
+
+    private string Title => DifferentNames || _name.Trim().Length == 0 ? "PaperKey" : "PaperKey — " + _name.Trim();
+
+    private void Generate()
+    {
+        var names = Enumerable.Range(0, Count).Select(i => NameAt(i).Trim()).ToArray();
+        var request = new SheetRequest(_name.Trim(), _size, Count, _mode, _paper, names);
+        var cards = SheetLayout.GenerateCards(request);
+        _sheet = SheetLayout.Compose(request, cards);
+        _svg = SvgRenderer.Render(_sheet);
+        _pdf = null;
+        _popupBlocked = false;
+    }
+
+    private byte[] Pdf => _pdf ??= PdfWriter.Render(_sheet!, Title);
+
+    private string FileName => $"paperkey-{SafeName(DifferentNames ? "" : _name.Trim())}.pdf";
+
+    private async Task Download() => await JS.InvokeVoidAsync("paperkey.download", FileName, Pdf);
+
+    private async Task Print() => await JS.InvokeVoidAsync("paperkey.print", _paper == PaperSize.Letter ? "letter" : "A4");
+
+    private async Task OpenPdf() => _popupBlocked = !await JS.InvokeAsync<bool>("paperkey.openPdf", Pdf);
+
+    private static string SafeName(string name)
+    {
+        var chars = name.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var s = new string(chars).Trim('-');
+        return s.Length == 0 ? "card" : s;
+    }
+}

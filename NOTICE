@@ -1,0 +1,10 @@
+PaperKey
+Copyright 2026 Hompain
+
+Licensed under the Apache License, Version 2.0.
+
+This product bundles the PT Sans font by ParaType Ltd., licensed under the
+SIL Open Font License, Version 1.1 (src/PaperKey.Core/Fonts/OFL.txt).
+
+This product bundles hash-wasm by Dani Biro (src/PaperKey.Web/wwwroot/js/vendor),
+licensed under the MIT License (src/PaperKey.Web/wwwroot/js/vendor/hash-wasm-LICENSE).

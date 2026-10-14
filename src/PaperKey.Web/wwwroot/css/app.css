@@ -1,0 +1,763 @@
+/* PT Sans (ParaType, SIL OFL 1.1) — тот же шрифт, что встроен в PDF */
+@font-face {
+    font-family: "PT Sans";
+    src: url("../fonts/PT_Sans-Web-Regular.ttf") format("truetype");
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: "PT Sans";
+    src: url("../fonts/PT_Sans-Web-Bold.ttf") format("truetype");
+    font-weight: bold;
+}
+
+:root {
+    --ink: #1a1a1a;
+    --muted: #666;
+    --line: #d0d0d0;
+    --accent: #1f5fbf;
+    --bg: #f6f6f4;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.4;
+}
+
+.loading {
+    padding: 3rem;
+    text-align: center;
+    color: var(--muted);
+}
+
+
+
+/* Каркас как в шаблоне Blazor: на широком экране меню слева, на телефоне — сверху с раскрывающимся списком */
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+main {
+    flex: 1;
+    min-width: 0;
+}
+
+.content {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+}
+
+.sidebar {
+    background-image: linear-gradient(180deg, #16407f 0%, #1f5fbf 70%);
+    color: #fff;
+}
+
+.top-row {
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+}
+
+.navbar-brand {
+    font-size: 1.15rem;
+    font-weight: bold;
+    letter-spacing: .02em;
+    color: #fff;
+    text-decoration: none;
+}
+
+.navbar-toggler {
+    appearance: none;
+    cursor: pointer;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-left: auto;
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 6px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3E%3Cpath stroke='rgba(255, 255, 255, 0.85)' stroke-linecap='round' stroke-width='2' d='M5 8h20M5 15h20M5 22h20'/%3E%3C/svg%3E") no-repeat center / 1.6rem;
+}
+
+.navbar-toggler:checked {
+    background-color: rgba(255, 255, 255, .15);
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    padding: .3rem 0 .8rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    height: 3rem;
+    margin: .1rem .6rem;
+    padding: 0 .9rem;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, .85);
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, .12);
+    color: #fff;
+}
+
+.nav-link.active {
+    background: rgba(255, 255, 255, .25);
+    color: #fff;
+}
+
+.nav-icon {
+    width: 1.4rem;
+    height: 1.4rem;
+    flex: none;
+}
+
+/* Телефон: меню сверху, список раскрывается кнопкой */
+@media (max-width: 640.98px) {
+    .nav-scrollable {
+        display: none;
+    }
+
+    .nav-scrollable.open {
+        display: block;
+    }
+}
+
+/* Широкий экран: меню — колонка слева на всю высоту, кнопка не нужна */
+@media (min-width: 641px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 250px;
+        flex: none;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+    }
+
+    .navbar-toggler {
+        display: none;
+    }
+
+    .nav-scrollable {
+        display: block;
+        height: calc(100vh - 3.5rem);
+        overflow-y: auto;
+    }
+}
+
+h1 {
+    font-size: 1.6rem;
+    margin: 0 0 .25rem;
+}
+
+.lead {
+    color: var(--muted);
+    margin: 0 0 1.5rem;
+}
+
+.form {
+    display: grid;
+    gap: .9rem;
+    grid-template-columns: minmax(0, 1fr);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+}
+
+.form label {
+    display: grid;
+    gap: .3rem;
+    font-size: .95rem;
+    min-width: 0;
+}
+
+.form .label-row {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.form input[type=text], .form select {
+    font: inherit;
+    padding: .45rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.form .row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.form .row > label, .form .row > .field {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+details.more summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: .95rem;
+}
+
+details.more .row {
+    margin-top: .8rem;
+}
+
+.actions {
+    display: flex;
+    gap: .6rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+button {
+    font: inherit;
+    padding: .55rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #fff;
+    color: var(--accent);
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: default;
+}
+
+.hint {
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+.warning {
+    margin: 1rem 0;
+    padding: .7rem 1rem;
+    border-left: 4px solid #d9a400;
+    background: #fff8dc;
+    font-size: .95rem;
+}
+
+/* Подсказка «?» */
+.form .field {
+    position: relative;
+    display: grid;
+    gap: .3rem;
+    font-size: .95rem;
+    min-width: 0;
+}
+
+.help {
+    display: inline-block;
+}
+
+.help-btn {
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    background: #fff;
+    color: var(--accent);
+    font-size: .8rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.help-pop {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 1.7rem;
+    z-index: 20;
+    width: min(380px, 100%);
+    padding: .7rem .8rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+    font-weight: normal;
+    font-size: .9rem;
+}
+
+.help-pop.open {
+    display: block;
+    pointer-events: auto;
+}
+
+.help-pop p {
+    margin: 0 0 .5rem;
+}
+
+.help-pop svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    background: #fff;
+}
+
+.preview {
+    margin-top: 1.5rem;
+}
+
+.preview .sheet {
+    background: #fff;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+    overflow: hidden;
+}
+
+.preview .sheet svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+footer {
+    margin-top: 2.5rem;
+    font-size: .85rem;
+    color: var(--muted);
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: .6rem 1.25rem;
+    background: #fff8dc;
+    border-top: 1px solid #d9a400;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: .75rem;
+    top: .5rem;
+}
+
+/* Печать из браузера: на бумагу уходит только лист, в масштабе 1:1 */
+@page {
+    size: A4 portrait;
+    margin: 0;
+}
+
+@media print {
+    html, body {
+        background: #fff;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    .print-sheet, .print-sheet * {
+        visibility: visible;
+    }
+
+    .print-sheet {
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+        border: none;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .print-sheet svg {
+        width: 210mm;
+        height: 297mm;
+    }
+}
+
+/* Страница проверки */
+.hidden {
+    display: none !important;
+}
+
+.camera-box {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 16 / 9;
+    background: #222;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: .8rem;
+}
+
+.camera-box video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.camera-box .guide {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 50%;
+    transform: translateY(-50%);
+    aspect-ratio: 171.2 / 54;
+    border: 2px dashed rgba(255, 255, 255, .85);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.camera-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+}
+
+.file-button {
+    display: inline-block;
+    padding: .55rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: #fff;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.file-button input {
+    display: none;
+}
+
+.shot-box {
+    margin-top: 1rem;
+    max-width: 900px;
+}
+
+.shot-box canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--line);
+    background: #fff;
+}
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: .8rem;
+    margin-top: 1rem;
+}
+
+.result {
+    margin-top: 0;
+    padding: .8rem 1rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.result h2 {
+    margin: 0 0 .5rem;
+    font-size: 1.15rem;
+}
+
+table.cells td {
+    padding: .2rem .8rem .2rem 0;
+}
+
+table.cells td:last-child {
+    font-weight: bold;
+}
+
+.swatch {
+    display: inline-block;
+    width: .9em;
+    height: .9em;
+    margin-right: .4em;
+    vertical-align: -.1em;
+    border-radius: 2px;
+}
+
+.swatch.good { background: rgba(40, 170, 60, .7); }
+.swatch.satisfactory { background: rgba(240, 190, 0, .8); }
+.swatch.bad { background: rgba(220, 30, 30, .7); }
+
+.level {
+    margin: .6rem 0 0;
+}
+
+.camera-select {
+    font: inherit;
+    padding: .5rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    max-width: 100%;
+}
+
+/* Страница сканирования */
+.camera-box .guide.guide-side {
+    left: 12%;
+    right: 12%;
+    aspect-ratio: 85.6 / 45;
+}
+
+.password {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.5rem;
+    letter-spacing: .08em;
+    word-break: break-all;
+    margin: .3rem 0;
+}
+
+.p12 { color: #1a1a1a; }
+.p18 { color: #1f5fbf; }
+.p28 { color: #2a8a3a; }
+
+.swatch.p12 { background: #1a1a1a; }
+.swatch.p18 { background: #1f5fbf; }
+.swatch.p28 { background: #2a8a3a; }
+
+.keyhex {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 1.05rem;
+    word-break: break-all;
+    margin: .3rem 0;
+}
+
+/* Разворачиваемые разделы результата сканирования */
+details.result > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+details.result > summary::-webkit-details-marker {
+    display: none;
+}
+
+details.result > summary h2 {
+    display: inline;
+    margin: 0;
+}
+
+details.result > summary::before {
+    content: "▸ ";
+    color: var(--accent);
+}
+
+details.result[open] > summary::before {
+    content: "▾ ";
+}
+
+details.result > summary + * {
+    margin-top: .6rem;
+}
+
+.service-input {
+    font: inherit;
+    width: 100%;
+    max-width: 420px;
+    padding: .45rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+}
+
+/* Лента снимков сканера: три места под камерой, новый снимок слева */
+.shots {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .5rem;
+    width: 100%;
+    max-width: 640px;
+    margin-bottom: .8rem;
+}
+
+.shot {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #222;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.shot.empty {
+    background: #fff;
+    border: 2px dashed var(--line);
+    cursor: default;
+}
+
+.shot.selected {
+    border-color: var(--accent);
+}
+
+.shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.shot .badge {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+    font-size: clamp(1rem, 4vw, 1.6rem);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+    background: rgba(0, 0, 0, .25);
+}
+
+.shot.ok .badge { background: rgba(40, 170, 60, .45); }
+.shot.doubtful .badge { background: rgba(240, 190, 0, .5); }
+.shot.error .badge { background: rgba(220, 30, 30, .45); }
+
+.spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid rgba(255, 255, 255, .35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .9s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* Окно поверх страницы: крупный снимок из ленты сканера со сведениями о распознавании */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal {
+    cursor: pointer;
+    width: min(960px, 100%);
+    max-height: 100%;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+    padding: 1rem;
+}
+
+.modal canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    border: 1px solid var(--line);
+    background: #fff;
+}
+
+.modal .results {
+    margin-top: .8rem;
+}
+
+
+/* Шапка спойлера сканера: заголовок слева, «?» справа; окно подсказки прижато к правому краю */
+details.result > summary {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+details.result > summary > h2 {
+    flex: 1;
+}
+
+details.result > summary .help {
+    position: relative;
+}
+
+details.result > summary .help-pop {
+    left: auto;
+    right: 0;
+    width: min(380px, 85vw);
+}
+
+/* Кнопки с иконкой: камера, сброс */
+.icon-btn {
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: .5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Заблокированные разделы, пока нет ключа */
+details.result.locked > summary {
+    color: var(--muted);
+    cursor: default;
+}
+
+details.result.locked > summary::before {
+    color: var(--line);
+}
+
+details.result.locked > summary > h2 {
+    font-weight: normal;
+}
+
+details.result.locked > summary {
+    position: relative;
+}
+
+details.result.locked > summary > .help-pop {
+    left: 0;
+    right: auto;
+    top: 2.4rem;
+    width: min(420px, 90%);
+}

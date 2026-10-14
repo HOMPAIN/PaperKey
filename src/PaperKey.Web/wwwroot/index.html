@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Страница не обращается никуда, кроме собственного сервера: ни аналитики, ни CDN, ни внешних шрифтов.
+         unsafe-inline нужен Blazor для встроенной importmap с именами файлов сборки; внешние скрипты по-прежнему запрещены. -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src blob:; frame-src blob:; connect-src 'self'; base-uri 'self'; form-action 'none'" />
+    <title>PaperKey — бумажный ключ</title>
+    <base href="/" />
+    <link rel="preload" id="webassembly" />
+    <link rel="stylesheet" href="css/app.css?v=13" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading">Загрузка…</div>
+    </div>
+
+    <div id="blazor-error-ui">
+        Произошла ошибка.
+        <a href="." class="reload">Перезагрузить</a>
+        <span class="dismiss">🗙</span>
+    </div>
+    <script src="js/paperkey#[.{fingerprint}].js"></script>
+    <script src="js/camera#[.{fingerprint}].js"></script>
+    <script src="js/vendor/argon2.umd.min.js"></script>
+    <script src="js/crypto#[.{fingerprint}].js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>

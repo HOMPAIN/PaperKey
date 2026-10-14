@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.swp
+TestResults/
+artifacts/
+publish/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Локальные настройки инструментов
+.claude/
+
+# Разметка инструмента check рядом с фотографиями
+*.check.svg
+*.check.png
+*.check.html
+*.mask.png
+src/PaperKey.Web/wwwroot/test/

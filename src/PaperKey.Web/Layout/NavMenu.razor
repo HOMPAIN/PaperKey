@@ -1,0 +1,33 @@
+@* Меню как в шаблоне Blazor: на широком экране — колонка слева, на телефоне — полоса сверху с кнопкой, раскрывающей список. *@
+
+<div class="top-row">
+    <a class="navbar-brand" href="">PaperKey</a>
+    <input type="checkbox" title="Меню" class="navbar-toggler" @bind="_open" />
+</div>
+
+<div class="nav-scrollable @(_open ? "open" : "")" @onclick="Close">
+    <nav class="nav">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l5 5v13H6z M14 3v6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 13h8M9 17h8" stroke="currentColor" stroke-width="1.8"/></svg>
+            Генератор
+        </NavLink>
+        <NavLink class="nav-link" href="check">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Проверка
+        </NavLink>
+        <NavLink class="nav-link" href="scan">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Сканер
+        </NavLink>
+        <NavLink class="nav-link" href="help">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>
+            Справка
+        </NavLink>
+    </nav>
+</div>
+
+@code {
+    private bool _open;
+
+    private void Close() => _open = false;
+}

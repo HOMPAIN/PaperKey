@@ -1,0 +1,226 @@
+@page "/check"
+@using PaperKey.Core.Vision
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>PaperKey — проверка карточки</PageTitle>
+
+<h1>Проверка карточки</h1>
+<p class="lead">Сфотографируйте несложенную карточку целиком — обе стороны в рамке. Страница найдёт таблицы, оценит каждую клетку и посчитает уровень защиты. Фото никуда не отправляется.</p>
+
+<div class="camera-box">
+    <video id="cam" autoplay playsinline muted class="@(_cameraOn ? "" : "hidden")"></video>
+    @if (_cameraOn)
+    {
+        <div id="guide" class="guide"></div>
+    }
+    else
+    {
+        <div class="camera-placeholder">Камера выключена</div>
+    }
+</div>
+
+<div class="actions">
+    @if (!_cameraOn)
+    {
+        <button @onclick="StartCamera">Включить камеру</button>
+    }
+    else
+    {
+        <button @onclick="Capture" disabled="@_busy">Сфотографировать</button>
+        <button class="secondary" @onclick="StopCamera">Выключить камеру</button>
+    }
+    @if (_cameraOn && _cameras.Count > 1)
+    {
+        <select class="camera-select" value="@_currentCamera" @onchange="SwitchCamera">
+            @foreach (var cam in _cameras)
+            {
+                <option value="@cam.Id">@cam.Label</option>
+            }
+        </select>
+    }
+    <label class="file-button secondary">
+        Загрузить фото
+        <input id="photo" type="file" accept="image/*" @onchange="LoadFile" />
+    </label>
+    @if (_busy)
+    {
+        <span class="hint">Распознаю…</span>
+    }
+</div>
+
+@if (_cameraError is not null)
+{
+    <p class="warning">Камера недоступна: @_cameraError</p>
+}
+
+<div class="shot-box @(_hasShot ? "" : "hidden")">
+    <canvas id="shot"></canvas>
+</div>
+
+@if (_analyzed)
+{
+    @if (_results.Count == 0)
+    {
+        <p class="warning">@_error</p>
+    }
+    else
+    {
+        <p class="hint">Снимок @_lastWidth × @_lastHeight, найдено сторон: @_results.Count, распознано за @_elapsed.TotalSeconds.ToString("0.0") с.</p>
+
+        <div class="results">
+            @foreach (var r in _results)
+            {
+                var s = SideProtection.Evaluate(r.Filled);
+                <div class="result">
+                    <h2>Сторона @(r.Side == '?' ? "не определена" : r.Side.ToString())</h2>
+                    @if (!r.OrientationKnown)
+                    {
+                        <p class="hint">Маркеры ориентации не распознаны — подсчёт клеток всё равно выполнен.</p>
+                    }
+                    <table class="cells">
+                        <tr><td><span class="swatch good"></span>Закрашены уверенно</td><td>@r.Good</td></tr>
+                        <tr><td><span class="swatch satisfactory"></span>Закрашены слабо — лучше подкрасить</td><td>@r.Satisfactory</td></tr>
+                        <tr><td><span class="swatch bad"></span>Сомнительные — подкрасьте или сотрите</td><td>@r.Bad</td></tr>
+                        <tr><td>Всего закрашено</td><td>@r.Filled</td></tr>
+                    </table>
+                    @if (s is not null)
+                    {
+                        <p class="level">Точек: <b>@s.Marks</b> · @s.Bits.ToString("0") бит · уровень стороны: <b>@Texts.LevelName(s.Level)</b></p>
+                    }
+                    else if (r.Filled < CardFormat.PrintedCellsPerSide)
+                    {
+                        <p class="warning">Закрашенных клеток меньше 112, а печатных должно быть ровно 112. Возможно, часть не распозналась: переснимите при лучшем свете.</p>
+                    }
+                    else
+                    {
+                        <p class="warning">Закрашено больше 280 клеток — больше 168 точек на стороне ставить нельзя.</p>
+                    }
+                </div>
+            }
+        </div>
+
+        var a = _results.FirstOrDefault(r => r.Side == 'A');
+        var b = _results.FirstOrDefault(r => r.Side == 'B');
+        var total = a is not null && b is not null ? Protection.Evaluate(a.Filled, b.Filled) : null;
+        @if (total is not null)
+        {
+            <div class="result summary">
+                <h2>Карточка</h2>
+                <p class="level">Точек @total.Marks · @total.Bits.ToString("0") бит · уровень защиты карточки: <b>@Texts.LevelName(total.Level)</b></p>
+            </div>
+        }
+        else if (_results.Count == 1)
+        {
+            <p class="hint">Найдена только одна сторона. Для уровня всей карточки нужны обе — сфотографируйте несложенную карточку целиком.</p>
+        }
+    }
+}
+
+<p><a href="/">← К генератору</a></p>
+
+@code {
+    private const int CaptureWidth = 1800;   // несложенная карточка ~190 мм → около 9 px на мм
+
+    private bool _cameraOn;
+    private bool _busy;
+    private bool _hasShot;
+    private bool _analyzed;
+    private string? _cameraError;
+    private List<CameraInfo> _cameras = new();
+    private string _currentCamera = "";
+
+    public sealed record CameraInfo(string Id, string Label);
+    public sealed record CameraStart(string Error, List<CameraInfo> Cameras, string Current);
+    private string _error = "";
+    private List<SideCheckResult> _results = new();
+    private TimeSpan _elapsed;
+    private int _lastWidth, _lastHeight;
+
+    private Task StartCamera() => StartCamera(null);
+
+    private async Task StartCamera(string? deviceId)
+    {
+        _cameraError = null;
+        _cameraOn = true;
+        StateHasChanged();
+        await Task.Yield();
+        var start = await JS.InvokeAsync<CameraStart>("paperkeyCamera.start", "cam", deviceId);
+        if (start.Error.Length > 0)
+        {
+            _cameraError = start.Error;
+            _cameraOn = false;
+            return;
+        }
+        _cameras = start.Cameras;
+        _currentCamera = start.Current;
+    }
+
+    private Task SwitchCamera(ChangeEventArgs e) => StartCamera(e.Value?.ToString());
+
+    private async Task StopCamera()
+    {
+        await JS.InvokeVoidAsync("paperkeyCamera.stop", "cam");
+        _cameraOn = false;
+    }
+
+    private async Task Capture()
+    {
+        var bytes = await JS.InvokeAsync<byte[]?>("paperkeyCamera.capture", "cam", "guide", "shot", CaptureWidth);
+        await Analyze(bytes);
+    }
+
+    private async Task LoadFile()
+    {
+        var bytes = await JS.InvokeAsync<byte[]?>("paperkeyCamera.loadFile", "photo", "shot", CaptureWidth);
+        await Analyze(bytes);
+    }
+
+    private async Task Analyze(byte[]? bytes)
+    {
+        if (bytes is null || bytes.Length < 4) return;
+        _busy = true;
+        _hasShot = true;
+        _analyzed = false;
+        StateHasChanged();
+        await Task.Yield();
+
+        var width = _lastWidth = bytes[0] | (bytes[1] << 8);
+        var height = _lastHeight = bytes[2] | (bytes[3] << 8);
+        var image = new GrayImage(width, height, bytes.AsSpan(4).ToArray());
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        _results = SideChecker.AnalyzeAll(image);
+        _elapsed = watch.Elapsed;
+        _error = SideChecker.NotFoundError;
+        _analyzed = true;
+
+        foreach (var r in _results) await DrawOverlay(r);
+        _busy = false;
+    }
+
+    private async Task DrawOverlay(SideCheckResult r)
+    {
+        var corners = r.Corners.SelectMany(p => new[] { p.X, p.Y }).ToArray();
+        var quads = r.CellQuads.Select((q, i) => new
+        {
+            p = q.SelectMany(p => new[] { Math.Round(p.X, 1), Math.Round(p.Y, 1) }).ToArray(),
+            c = r.Classes[i] switch
+            {
+                CellClass.Good => "rgba(40,170,60,0.45)",
+                CellClass.Satisfactory => "rgba(240,190,0,0.55)",
+                CellClass.Bad => "rgba(220,30,30,0.55)",
+                _ => "",
+            },
+        }).Where(q => q.c.Length > 0).ToArray();
+        await JS.InvokeVoidAsync("paperkeyCamera.drawOverlay", "shot", corners, quads);
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_cameraOn)
+        {
+            try { await JS.InvokeVoidAsync("paperkeyCamera.stop", "cam"); } catch (JSDisconnectedException) { }
+        }
+    }
+}

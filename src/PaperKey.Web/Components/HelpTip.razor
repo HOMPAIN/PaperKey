@@ -1,0 +1,21 @@
+@* Кнопка «?» с всплывающей справкой: текст и картинка карточки, где нужное место обведено красным.
+   Открывается по нажатию, закрывается повторным нажатием или нажатием в любом другом месте. *@
+
+<span class="help">
+    <button type="button" class="help-btn" aria-label="Справка" aria-expanded="@_open" @onclick="Toggle" @onclick:stopPropagation="true" @onclick:preventDefault="true" @onblur="Close">?</button>
+    <span class="help-pop @(_open ? "open" : "")" role="tooltip">
+        <p>@((MarkupString)Text)</p>
+        @((MarkupString)Image)
+    </span>
+</span>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string Image { get; set; } = "";
+
+    private bool _open;
+
+    private void Toggle() => _open = !_open;
+
+    private void Close() => _open = false;
+}
