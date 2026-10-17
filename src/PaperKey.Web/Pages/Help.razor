@@ -1,6 +1,38 @@
 @page "/help"
+@page "/help/{Slug}"
+@inject IJSRuntime JS
 
-<PageTitle>PaperKey — справка</PageTitle>
+<PageTitle>PaperKey — справка@(Current is { } c ? ": " + c.Title : "")</PageTitle>
 
-<h1>Справка</h1>
-<p class="lead">Раздел в работе.</p>
+<nav class="doc-nav">
+    @foreach (var doc in Docs.Pages)
+    {
+        <a class="doc-tab @(doc.Slug == (Slug ?? Docs.Pages[0].Slug) ? "active" : "")" href="@("help/" + doc.Slug)">@doc.Title</a>
+    }
+</nav>
+
+@if (Current is { } current)
+{
+    <article class="doc">@((MarkupString)Markdown.ToHtml(Docs.Markdown(current)))</article>
+}
+else
+{
+    <p class="warning">Такой страницы справки нет.</p>
+}
+
+@code {
+    [Parameter] public string? Slug { get; set; }
+
+    private Docs.Page? Current => Docs.Find(Slug);
+    private string? _shown;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // При переходе между страницами справки — к началу, иначе новая страница открывается на старой прокрутке
+        if (_shown != Slug)
+        {
+            _shown = Slug;
+            await JS.InvokeVoidAsync("window.scrollTo", 0, 0);
+        }
+    }
+}

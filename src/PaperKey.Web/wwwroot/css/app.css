@@ -761,3 +761,71 @@ details.result.locked > summary > .help-pop {
     top: 2.4rem;
     width: min(420px, 90%);
 }
+
+/* Справка: вкладки разделов и текст документации из docs/*.md */
+.doc-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-bottom: 1.2rem;
+}
+
+.doc-tab {
+    padding: .35rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: .95rem;
+}
+
+.doc-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.doc h1 { font-size: 1.6rem; margin: 0 0 .8rem; }
+.doc h2 { font-size: 1.25rem; margin: 1.6rem 0 .5rem; }
+.doc h3 { font-size: 1.05rem; margin: 1.2rem 0 .4rem; }
+.doc h4 { font-size: 1rem; margin: 1rem 0 .3rem; }
+.doc p, .doc ul, .doc ol { margin: 0 0 .8rem; }
+.doc li { margin: .2rem 0; }
+.doc img { max-width: 100%; height: auto; display: block; margin: 1rem 0; border-radius: 8px; }
+
+.doc table {
+    border-collapse: collapse;
+    margin: 0 0 1rem;
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    font-size: .92rem;
+}
+
+.doc th, .doc td {
+    border: 1px solid var(--line);
+    padding: .3rem .6rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.doc th { background: #fff; }
+
+.doc code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: .9em;
+    background: #ececea;
+    padding: .05em .3em;
+    border-radius: 4px;
+}
+
+.doc pre {
+    background: #ececea;
+    padding: .7rem .9rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 0 0 1rem;
+}
+
+.doc pre code { background: none; padding: 0; }

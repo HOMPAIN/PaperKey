@@ -22,4 +22,10 @@
     <Content Include="..\PaperKey.Core\Fonts\OFL.txt" Link="wwwroot\fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Справка: документы из docs/ встраиваются в сборку (без копий в репозитории), картинки отдаются как статические файлы -->
+    <EmbeddedResource Include="..\..\docs\*.md" LogicalName="docs/%(Filename)%(Extension)" />
+    <Content Include="..\..\docs\images\*" Link="wwwroot\docs\images\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
