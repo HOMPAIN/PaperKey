@@ -47,12 +47,12 @@ public class VisionTests
         Assert.Equal(0, r.Bad);
         for (var i = 0; i < 448; i++)
             Assert.Equal(Printed[i], r.Classes[i] == CellClass.Good);
-        Assert.Equal(ProtectionLevel.None, SideProtection.Evaluate(r.Filled)!.Level);
+        Assert.Equal(ProtectionLevel.Weak, SideProtection.Evaluate(r.Filled)!.Level);
     }
 
     [Theory]
     [InlineData("side-A-30.png", "side-A-30.cells", 'A', ProtectionLevel.Strong)]
-    [InlineData("side-B-20.png", "side-B-20.cells", 'B', ProtectionLevel.Good)]
+    [InlineData("side-B-20.png", "side-B-20.cells", 'B', ProtectionLevel.Medium)]
     [InlineData("side-A-30-rotated.png", "side-A-30.cells", 'A', ProtectionLevel.Strong)]
     public void MarkedCells_AreCountedAndLocated(string png, string cells, char side, ProtectionLevel level)
     {
@@ -107,12 +107,13 @@ public class VisionTests
     }
 
     [Theory]
-    [InlineData(112, 0, ProtectionLevel.None)]
-    [InlineData(122, 10, ProtectionLevel.Weak)]
-    [InlineData(123, 11, ProtectionLevel.Medium)]
-    [InlineData(130, 18, ProtectionLevel.Good)]
-    [InlineData(138, 26, ProtectionLevel.Strong)]
-    [InlineData(189, 77, ProtectionLevel.Maximum)]
+    [InlineData(112, 0, ProtectionLevel.Weak)]
+    [InlineData(123, 11, ProtectionLevel.Weak)]
+    [InlineData(124, 12, ProtectionLevel.Medium)]
+    [InlineData(141, 29, ProtectionLevel.Medium)]
+    [InlineData(142, 30, ProtectionLevel.Strong)]
+    [InlineData(191, 79, ProtectionLevel.Strong)]
+    [InlineData(192, 80, ProtectionLevel.Maximum)]
     [InlineData(280, 168, ProtectionLevel.Maximum)]
     public void SideLevels(int filled, int marks, ProtectionLevel level)
     {

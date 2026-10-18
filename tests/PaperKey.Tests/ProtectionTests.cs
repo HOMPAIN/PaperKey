@@ -8,24 +8,22 @@ public class ProtectionTests
     public void EntropyFigures_MatchSpecification()
     {
         Assert.Equal(358.9, Protection.Log2Binomial(448, 112), 1);
-        Assert.Equal(133.7, 2 * Protection.MarkBits(11), 1);
-        Assert.Equal(195.8, 2 * Protection.MarkBits(18), 1);
-        Assert.Equal(256.8, 2 * Protection.MarkBits(26), 1);
+        Assert.Equal(143.2, 2 * Protection.MarkBits(12), 1);
+        Assert.Equal(142.1, Protection.MarkBits(30), 1);
+        Assert.Equal(261.8, Protection.MarkBits(80), 1);
         Assert.Equal(256.6, Protection.MarkBits(77), 1);
         Assert.Equal(158.2, Protection.MarkBits(35), 1);
     }
 
     [Theory]
-    [InlineData(0, 0, ProtectionLevel.None)]
-    [InlineData(1, 0, ProtectionLevel.Weak)]
-    [InlineData(10, 10, ProtectionLevel.Weak)]
-    [InlineData(11, 11, ProtectionLevel.Medium)]
-    [InlineData(17, 17, ProtectionLevel.Medium)]
-    [InlineData(18, 18, ProtectionLevel.Good)]
-    [InlineData(25, 25, ProtectionLevel.Good)]
-    [InlineData(26, 26, ProtectionLevel.Strong)]
-    [InlineData(76, 77, ProtectionLevel.Strong)]
-    [InlineData(77, 77, ProtectionLevel.Maximum)]
+    [InlineData(0, 0, ProtectionLevel.Weak)]
+    [InlineData(11, 11, ProtectionLevel.Weak)]
+    [InlineData(12, 12, ProtectionLevel.Medium)]
+    [InlineData(29, 29, ProtectionLevel.Medium)]
+    [InlineData(29, 30, ProtectionLevel.Medium)]
+    [InlineData(30, 30, ProtectionLevel.Strong)]
+    [InlineData(79, 80, ProtectionLevel.Strong)]
+    [InlineData(80, 80, ProtectionLevel.Maximum)]
     [InlineData(168, 168, ProtectionLevel.Maximum)]
     public void Levels(int marksA, int marksB, ProtectionLevel expected)
     {
@@ -39,12 +37,11 @@ public class ProtectionTests
     [Fact]
     public void UnevenSplitIsCountedByBits()
     {
-        // 44 + 8 меток: тоже 52, но бит меньше, чем при 26 + 26 — уровень ниже.
-        var even = Protection.Evaluate(112 + 26, 112 + 26)!;
-        var uneven = Protection.Evaluate(112 + 44, 112 + 8)!;
+        // 52 + 8 меток: суммарно бит не меньше, чем при 30 + 30, но слабая сторона держит лишь 52 бита — уровень ниже.
+        var even = Protection.Evaluate(112 + 30, 112 + 30)!;
+        var uneven = Protection.Evaluate(112 + 52, 112 + 8)!;
         Assert.Equal(ProtectionLevel.Strong, even.Level);
-        Assert.True(uneven.Bits < even.Bits);
-        Assert.Equal(ProtectionLevel.Good, uneven.Level);
+        Assert.Equal(ProtectionLevel.Medium, uneven.Level);
     }
 
     [Theory]
@@ -65,12 +62,15 @@ public class ProtectionTests
         // Ни одна достижимая сумма бит не лежит ближе 1e-6 к границе уровня —
         // сравнение в double не зависит от порядка суммирования.
         var bits = Enumerable.Range(0, CardFormat.MaxMarksPerSide + 1).Select(Protection.MarkBits).ToArray();
-        foreach (var threshold in new[] { Protection.MediumBits, Protection.GoodBits, Protection.StrongBits })
-            for (var a = 0; a < bits.Length; a++)
-                for (var b = a; b < bits.Length; b++)
-                    Assert.True(Math.Abs(bits[a] + bits[b] - threshold) > 1e-6, $"m_A={a}, m_B={b}, порог {threshold}");
-        foreach (var b in bits)
-            Assert.True(Math.Abs(b - Protection.MaximumBitsPerSide) > 1e-6);
+        // Сама граница достижима ровно (12 + 12 для суммы; 30 и 80 для стороны) и считается той же функцией — это не двусмысленность
+        for (var a = 0; a < bits.Length; a++)
+            for (var b = a; b < bits.Length; b++)
+                if (!(a == Protection.MediumMarks && b == Protection.MediumMarks))
+                    Assert.True(Math.Abs(bits[a] + bits[b] - Protection.MediumBits) > 1e-6, $"m_A={a}, m_B={b}");
+        foreach (var threshold in new[] { Protection.StrongMarks, Protection.MaximumMarks })
+            for (var m = 0; m < bits.Length; m++)
+                if (m != threshold)
+                    Assert.True(Math.Abs(bits[m] - bits[threshold]) > 1e-6, $"m={m}, порог {threshold}");
     }
 }
 

@@ -7,10 +7,8 @@ public static class Texts
 {
     public static string LevelName(ProtectionLevel level) => level switch
     {
-        ProtectionLevel.None => "нет",
         ProtectionLevel.Weak => "слабая",
         ProtectionLevel.Medium => "средняя",
-        ProtectionLevel.Good => "хорошая",
         ProtectionLevel.Strong => "сильная",
         ProtectionLevel.Maximum => "максимальная",
         _ => level.ToString(),

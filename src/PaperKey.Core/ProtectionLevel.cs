@@ -1,20 +1,19 @@
 namespace PaperKey.Core;
 
-/// <summary>Уровень защиты карточки от перехвата при печати — определяется числом меток пользователя.</summary>
+/// <summary>
+/// Уровень защиты карточки от перехвата при печати — определяется числом меток пользователя.
+/// Границы заданы числом меток на каждой стороне (при равном числе на обеих): 12 — средняя, 30 — сильная, 80 — максимальная.
+/// </summary>
 public enum ProtectionLevel
 {
-    /// <summary>Меток нет: перехват печати равен компрометации ключа.</summary>
-    None = 0,
-    /// <summary>Меньше 128 бит.</summary>
+    /// <summary>0–11 меток: есть вероятность перебора.</summary>
     Weak = 1,
-    /// <summary>128–191 бит.</summary>
+    /// <summary>12–29 меток: защита от перехвата карточки при печати — 128 бит на карточку с запасом на неслучайность.</summary>
     Medium = 2,
-    /// <summary>192–255 бит.</summary>
-    Good = 3,
-    /// <summary>256 бит и больше в сумме по двум сторонам.</summary>
-    Strong = 4,
-    /// <summary>256 бит и больше на каждой стороне по отдельности.</summary>
-    Maximum = 5,
+    /// <summary>30–79 меток: защита от перехвата при печати и от фотографии одной стороны — 128 бит с запасом на каждой стороне.</summary>
+    Strong = 3,
+    /// <summary>80–168 меток: полная защита — 256 бит и больше на каждой стороне.</summary>
+    Maximum = 4,
 }
 
 /// <summary>Результат оценки уровня защиты по числу закрашенных клеток на сторонах.</summary>
@@ -31,10 +30,17 @@ public sealed record ProtectionAssessment(
 
 public static class Protection
 {
-    public const double MediumBits = 128;
-    public const double GoodBits = 192;
-    public const double StrongBits = 256;
-    public const double MaximumBitsPerSide = 256;
+    /// <summary>Меток на каждой стороне, с которых начинается уровень.</summary>
+    public const int MediumMarks = 12;
+    public const int StrongMarks = 30;
+    public const int MaximumMarks = 80;
+
+    /// <summary>Средняя: сумма бит обеих сторон не меньше, чем при 12 + 12 метках (≈ 143,2 бита — 128 с запасом).</summary>
+    public static double MediumBits => 2 * MarkBits(MediumMarks);
+    /// <summary>Сильная: на каждой стороне не меньше бит, чем при 30 метках (≈ 142,1 бита): фотография одной стороны не помогает.</summary>
+    public static double StrongBitsPerSide => MarkBits(StrongMarks);
+    /// <summary>Максимальная: на каждой стороне не меньше бит, чем при 80 метках (≈ 261,8 бита — 256 с запасом).</summary>
+    public static double MaximumBitsPerSide => MarkBits(MaximumMarks);
 
     /// <summary>log2 C(n, k), вычисленный как сумма логарифмов — точности double достаточно.</summary>
     public static double Log2Binomial(int n, int k)
@@ -64,15 +70,14 @@ public static class Protection
 
         var bitsA = MarkBits(marksA);
         var bitsB = MarkBits(marksB);
-        var total = bitsA + bitsB;
+        var weaker = Math.Min(bitsA, bitsB);
 
-        ProtectionLevel level;
-        if (marksA + marksB == 0) level = ProtectionLevel.None;
-        else if (bitsA >= MaximumBitsPerSide && bitsB >= MaximumBitsPerSide) level = ProtectionLevel.Maximum;
-        else if (total >= StrongBits) level = ProtectionLevel.Strong;
-        else if (total >= GoodBits) level = ProtectionLevel.Good;
-        else if (total >= MediumBits) level = ProtectionLevel.Medium;
-        else level = ProtectionLevel.Weak;
+        // Сравнение с битами, вычисленными той же функцией для порогового числа меток, поэтому на границе
+        // (ровно 30 или 80 меток) результат точен; суммы вдали от границ — см. тест BoundaryValuesAreNotAmbiguous
+        var level = weaker >= MaximumBitsPerSide ? ProtectionLevel.Maximum
+            : weaker >= StrongBitsPerSide ? ProtectionLevel.Strong
+            : bitsA + bitsB >= MediumBits ? ProtectionLevel.Medium
+            : ProtectionLevel.Weak;
 
         return new ProtectionAssessment(marksA, marksB, bitsA, bitsB, level);
     }
@@ -80,7 +85,7 @@ public static class Protection
     public static ProtectionAssessment? Evaluate(Card card) => Evaluate(card.A.FilledCount, card.B.FilledCount);
 }
 
-/// <summary>Оценка одной стороны отдельно: уровень по битам её меток с порогами вдвое меньше карточных (64 / 96 / 128 / 256).</summary>
+/// <summary>Оценка одной стороны отдельно: уровень по битам её меток с теми же порогами на сторону (12 / 30 / 80 меток).</summary>
 public sealed record SideAssessment(int Marks, double Bits, ProtectionLevel Level);
 
 public static class SideProtection
@@ -91,11 +96,9 @@ public static class SideProtection
         var marks = filled - CardFormat.PrintedCellsPerSide;
         if (marks < 0 || marks > CardFormat.MaxMarksPerSide) return null;
         var bits = Protection.MarkBits(marks);
-        var level = marks == 0 ? ProtectionLevel.None
-            : bits >= Protection.MaximumBitsPerSide ? ProtectionLevel.Maximum
-            : bits >= Protection.StrongBits / 2 ? ProtectionLevel.Strong
-            : bits >= Protection.GoodBits / 2 ? ProtectionLevel.Good
-            : bits >= Protection.MediumBits / 2 ? ProtectionLevel.Medium
+        var level = bits >= Protection.MaximumBitsPerSide ? ProtectionLevel.Maximum
+            : bits >= Protection.StrongBitsPerSide ? ProtectionLevel.Strong
+            : bits >= Protection.MarkBits(Protection.MediumMarks) ? ProtectionLevel.Medium
             : ProtectionLevel.Weak;
         return new SideAssessment(marks, bits, level);
     }
