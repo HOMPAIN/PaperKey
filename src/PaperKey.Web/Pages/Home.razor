@@ -2,10 +2,10 @@
 @using PaperKey.Web.Components
 @inject IJSRuntime JS
 
-<PageTitle>PaperKey — бумажный ключ</PageTitle>
+<PageTitle>PaperKey — генератор</PageTitle>
 
-<h1>PaperKey — бумажный ключ</h1>
-<p class="lead">Карточка с 256-битным ключом, которую вы печатаете сами. Всё происходит в этой вкладке: страница не отправляет ничего в сеть.</p>
+<h1>Генератор</h1>
+<p class="lead">Генератор карточки PaperKey для печати. Всё происходит в этой вкладке: страница не отправляет ничего в сеть.</p>
 
 <div class="form">
     @if (!DifferentNames)
@@ -111,10 +111,10 @@
     </div>
 }
 
-<p><a href="check">Проверить напечатанный лист →</a> · <a href="scan">Отсканировать готовую карточку →</a></p>
+<p><a href="help/making">Как сделать карточку →</a> · <a href="help/marks">Как расставить точки →</a></p>
 
 <footer>
-    PaperKey — свободный проект под лицензией Apache 2.0. Формат карточки открыт: любой сканер прочитает любую карточку одинаково.
+    <a href="https://github.com/HOMPAIN/PaperKey" target="_blank" rel="noopener">PaperKey</a> — свободный проект под лицензией Apache 2.0. Формат карточки открыт: любой сканер прочитает любую карточку одинаково.
 </footer>
 
 @code {
