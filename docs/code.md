@@ -147,7 +147,14 @@ dotnet run --project tools/PaperKey.Render -- crop <фото.png> <x> <y> <ш> <
 
 ## 6. Сборка и запуск
 
-Нужен .NET SDK 10. Сервер разработки:
+Нужен .NET SDK 10 (версия закреплена в `global.json`).
+
+```bash
+dotnet build PaperKey.slnx
+dotnet test PaperKey.slnx
+```
+
+Сервер разработки:
 
 ```bash
 dotnet run --project src/PaperKey.Web
