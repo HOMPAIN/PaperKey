@@ -334,7 +334,23 @@ else
         shot.Thumb = await JS.InvokeAsync<string>("paperkeyCamera.thumbnail", shot.Id, ThumbWidth);
         StateHasChanged();
         await Task.Yield();
+        try
+        {
+            await AnalyzeCore(shot, bytes);
+        }
+        catch (Exception ex)
+        {
+            // Сбой разбора — красный снимок с текстом ошибки, а не падение приложения; подробности в консоли
+            shot.Status = ShotStatus.Error;
+            shot.Label = "Error";
+            shot.Info = "Ошибка распознавания: " + ex.Message + ". Переснимите; если повторяется — сообщите разработчику.";
+            try { await JS.InvokeVoidAsync("console.error", "paperkey: " + ex); } catch { }
+        }
+        _busy = false;
+    }
 
+    private async Task AnalyzeCore(Shot shot, byte[] bytes)
+    {
         var width = bytes[0] | (bytes[1] << 8);
         var height = bytes[2] | (bytes[3] << 8);
         var image = new GrayImage(width, height, bytes.AsSpan(4).ToArray());
@@ -355,7 +371,7 @@ else
         {
             status = ShotStatus.Error;
             labels.Add("Error");
-            notes.Add(SideChecker.NotFoundError);
+            notes.Add(SideChecker.NotFoundError.TrimEnd('.'));
         }
         foreach (var r in results) await DrawOverlay(shot.Id, r);
         if (results.Count > 1)
@@ -431,7 +447,6 @@ else
         {
             _message = $"Теперь сторона {(_sides.ContainsKey('A') ? 'B' : 'A')}.";
         }
-        _busy = false;
     }
 
     /// <summary>Argon2id считает hash-wasm (см. crypto.js); параметры — из CardFormat, те же, что в KeyDerivation.</summary>

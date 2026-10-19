@@ -238,7 +238,7 @@ public static class SideChecker
 
     private static SideCheckResult? Evaluate(GrayImage image, PointD[] corners)
     {
-        if (corners.Any(p => double.IsNaN(p.X) || double.IsNaN(p.Y))) return null;
+        if (corners.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y))) return null;
         var frame = new[] { new PointD(0, 0), new PointD(FrameW, 0), new PointD(FrameW, FrameH), new PointD(0, FrameH) };
         Homography toImage;
         try
@@ -306,6 +306,8 @@ public static class SideChecker
             var r = i / CardFormat.Columns; var c = i % CardFormat.Columns;
             quads[i] = new[] { toImage.Map(mesh[r, c].X, mesh[r, c].Y), toImage.Map(mesh[r, c + 1].X, mesh[r, c + 1].Y), toImage.Map(mesh[r + 1, c + 1].X, mesh[r + 1, c + 1].Y), toImage.Map(mesh[r + 1, c].X, mesh[r + 1, c].Y) };
         }
+        // Вырожденная геометрия (бесконечность или NaN после гомографии) — кандидат не годится; такие числа и через JSON в браузер не пройдут
+        if (!double.IsFinite(score) || fill.Any(v => !double.IsFinite(v)) || quads.Any(q => q.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y)))) return null;
         var sharpness = fill.Average(v => Math.Abs(v - 0.5)) * 2;
         return new SideCheckResult(true, null, side, true, fill, classes, corners, quads, score, sharpness, leftBlock, rightBlock);
     }

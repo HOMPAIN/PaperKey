@@ -189,12 +189,21 @@
         var height = _lastHeight = bytes[2] | (bytes[3] << 8);
         var image = new GrayImage(width, height, bytes.AsSpan(4).ToArray());
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        _results = SideChecker.AnalyzeAll(image);
+        try
+        {
+            _results = SideChecker.AnalyzeAll(image);
+            _error = SideChecker.NotFoundError;
+            foreach (var r in _results) await DrawOverlay(r);
+        }
+        catch (Exception ex)
+        {
+            // Сбой разбора — это сообщение на странице, а не падение приложения; подробности в консоли
+            _results = new List<SideCheckResult>();
+            _error = "Ошибка распознавания: " + ex.Message + ". Переснимите; если повторяется — сообщите разработчику.";
+            await JS.InvokeVoidAsync("console.error", "paperkey: " + ex);
+        }
         _elapsed = watch.Elapsed;
-        _error = SideChecker.NotFoundError;
         _analyzed = true;
-
-        foreach (var r in _results) await DrawOverlay(r);
         _busy = false;
     }
 
